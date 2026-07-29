@@ -2,6 +2,16 @@
 
 A CLI that pulls your Meta advertising data into PostgreSQL, analyses it, and recommends what to fix. Everything runs in Docker, no Python needed.
 
+## Screenshots
+
+The interactive dashboard (`meta dashboard`) — recommendations, performance, and the creative library in one terminal view.
+
+![Findings tab — colour-coded recommendations with apply/dismiss](assets/dashboard-findings.png)
+
+![Performance tab — spend, CTR, CPA, ROAS and frequency per campaign](assets/dashboard-performance.png)
+
+![Creatives tab — the creative library with deployment counts](assets/dashboard-creatives.png)
+
 ## Setup
 
 ```bash
