@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# meta-optimizer development stack.
+#
+#   cp .env.example .env      fill in the four required META_* values
+#   docker compose up -d      build the image and start the database
+#   docker compose exec app meta --help
+#
+# One-off invocations do not need a running container:
+#   docker compose run --rm app meta campaigns
+#   docker compose run --rm app pytest
+#   docker compose run --rm app ruff check .
+#
+# Credentials are interpolated from .env rather than written here. The
+# `${VAR:?message}` form makes Compose abort with a readable error when a
+# variable is missing, instead of starting a database nobody can authenticate
+# against.
+# ---------------------------------------------------------------------------
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      # Explicit: the Dockerfile's last stage must never decide which image
+      # a developer gets. `development` carries pytest, ruff, black, and mypy.
+      target: development
+
+    # The bind mount shadows the source copied in at build time. Combined with
+    # the editable install, a change on the host takes effect on the next
+    # command with no rebuild. A rebuild is required only when pyproject.toml
+    # changes.
+    volumes:
+      - .:/workspace
+
+    env_file:
+      - .env
+
+    # Wait for Postgres to actually accept connections, not merely for its
+    # container to start. Without `condition`, the first command after
+    # `up` races the database's initialization and fails.
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    working_dir: /workspace
+
+    command: tail -f /dev/null
+
+  postgres:
+    image: postgres:17
+
+    # Only the three variables Postgres needs. The Meta access token is
+    # deliberately not exposed to this container.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is not set; copy .env.example to .env}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is not set; copy .env.example to .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set; copy .env.example to .env}
+
+    # Published for external tools (psql, a GUI client). The application does
+    # not use this port; it connects to postgres:5432 over the Compose network.
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # $$ escapes interpolation so the variables are expanded inside the
+    # container by the shell, not by Compose on the host.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:

@@ -1,0 +1,195 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "meta-optimizer"
+version = "0.1.0"
+description = "Production-grade CLI for analyzing and optimizing Meta advertising campaigns."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13,<3.14"
+authors = [{ name = "meta-optimizer contributors" }]
+keywords = ["meta", "facebook", "advertising", "marketing-api", "cli", "optimization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+    "Typing :: Typed",
+]
+
+# Runtime dependencies only. Anything imported by a module under `app/` must be
+# listed here. Bounds are pinned to the current major line so that a transitive
+# major release cannot silently break a reproducible image build.
+dependencies = [
+    "typer>=0.15.1,<1.0",
+    "rich>=13.9.4,<15.0",
+    "textual>=0.86.0,<4.0",
+    "pydantic>=2.10.4,<3.0",
+    "pydantic-settings>=2.7.0,<3.0",
+    "sqlalchemy>=2.0.36,<2.1",
+    "alembic>=1.14.0,<2.0",
+    "psycopg[binary]>=3.2.3,<4.0",
+    "requests>=2.32.3,<3.0",
+    "python-dotenv>=1.0.1,<2.0",
+]
+
+[project.optional-dependencies]
+# Installed only in the development image stage; the runtime image never ships these.
+dev = [
+    "pytest>=8.3.4,<9.0",
+    "pytest-cov>=6.0.0,<7.0",
+    "pytest-mock>=3.14.0,<4.0",
+    "responses>=0.25.3,<1.0",
+    "ruff>=0.8.4,<1.0",
+    "black>=24.10.0,<26.0",
+    "mypy>=1.14.0,<2.0",
+    "types-requests>=2.32.0,<3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/meta-optimizer/meta-optimizer"
+Repository = "https://github.com/meta-optimizer/meta-optimizer"
+Issues = "https://github.com/meta-optimizer/meta-optimizer/issues"
+
+[project.scripts]
+# The single CLI binary. Resolved lazily at invocation time, so installation
+# succeeds before `app/cli/main.py` exists.
+meta = "app.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.build.targets.sdist]
+include = ["app", "migrations", "tests", "alembic.ini"]
+
+# ---------------------------------------------------------------------------
+# Formatting
+# ---------------------------------------------------------------------------
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+# ---------------------------------------------------------------------------
+# Linting
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["app", "tests"]
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "D",    # pydocstyle: enforces "every class must be documented"
+    "ANN",  # flake8-annotations: enforces "every function must have type hints"
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez: forbids naive datetimes
+    "T20",  # flake8-print: no stray print(); use Rich or logging
+    "PT",   # flake8-pytest-style
+    "RET",  # flake8-return
+    "SIM",  # flake8-simplify
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate: no commented-out code
+    "PL",   # pylint
+    "TRY",  # tryceratops: no silently swallowed exceptions
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    # Conflicts with the Black formatter.
+    "E501",   # line length is enforced by Black, not the linter
+    "W191",   # tab indentation
+    # Typer relies on function-call defaults (typer.Option/typer.Argument).
+    "B008",
+    # Long, descriptive messages passed directly to custom exceptions read
+    # better at the raise site than hoisted into a temporary variable.
+    "TRY003",
+    # A module docstring on every `__init__.py` is required; a package-level
+    # docstring for test modules is not.
+    "D107",   # __init__ is documented by its class docstring
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.ruff.lint.pylint]
+max-args = 8
+
+[tool.ruff.lint.per-file-ignores]
+# Tests document themselves through their names and may use fixtures freely.
+"tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "ARG001", "ARG002", "PLR2004", "S101"]
+# In Typer, a command's parameters *are* its command-line flags. The argument
+# count is the user-facing interface rather than a sign of poor cohesion, so the
+# too-many-arguments rules measure the wrong thing here. Every other rule,
+# including mandatory type hints and docstrings, still applies.
+"app/commands/*.py" = ["PLR0913", "PLR0917"]
+# Alembic generates this file; its contents are not ours to style.
+"migrations/env.py" = ["D", "ANN", "ERA"]
+
+# ---------------------------------------------------------------------------
+# Static typing
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.13"
+files = ["app", "tests"]
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+exclude = ["migrations/versions"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--cov=app",
+    "--cov-report=term-missing",
+]
+markers = [
+    "integration: test requires a live PostgreSQL service from docker compose",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
